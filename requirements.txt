@@ -1,0 +1,5 @@
+numpy
+scipy
+matplotlib
+pytest
+polyscope  # Interactive 3D visualization (optional but recommended)
