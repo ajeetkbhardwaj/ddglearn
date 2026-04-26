@@ -18,49 +18,84 @@ except Exception:
     _HAS_SCIPY = False
 
 
-def solve_poisson(mesh, f: np.ndarray, pin_index: Optional[int] = 0, pin_value: float = 0.0) -> np.ndarray:
+def solve_poisson(
+    mesh,
+    f: np.ndarray,
+    pin_index: Optional[int] = 0,
+    pin_value: float = 0.0,
+    dirichlet_indices: Optional[np.ndarray] = None,
+    dirichlet_values: Optional[np.ndarray] = None,
+    neumann_indices: Optional[np.ndarray] = None,
+    neumann_values: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """Solve Poisson equation on mesh for given right-hand side `f` (vertex-wise).
 
     Returns solution `u` at vertices. By default pins `pin_index` to `pin_value`
-    to make the linear system non-singular.
+    to make the linear system non-singular. Optionally accepts Dirichlet and
+    Neumann boundary conditions.
     """
     D0 = d0(mesh)
     H1 = hodge_star_1(mesh)
     H0 = hodge_star_0(mesh)
 
     if _HAS_SCIPY and isspmatrix(D0):
-        from scipy.sparse import csr_matrix
         D0 = csr_matrix(D0)
         H1 = csr_matrix(H1) if not isspmatrix(H1) else H1
         H0 = csr_matrix(H0) if not isspmatrix(H0) else H0
-        W = D0.T.dot(H1.dot(D0))
-        rhs = H0.dot(f)
-        # apply Dirichlet pin
-        n = mesh.n_vertices
-        if pin_index is not None:
-            # convert to CSR and modify
-            W = W.tolil()
-            W[pin_index, :] = 0
-            W[:, pin_index] = 0
-            W[pin_index, pin_index] = 1.0
+        W = D0.T @ H1 @ D0
+        rhs = H0 @ f
+        
+        if neumann_indices is not None and neumann_values is not None:
+            rhs[neumann_indices] += neumann_values
+            
+        from scipy.sparse import diags
+        
+        if dirichlet_indices is not None and dirichlet_values is not None:
+            mask = np.ones(mesh.n_vertices, dtype=float)
+            mask[dirichlet_indices] = 0.0
+            M = diags(mask)
+            # Adjust RHS for off-diagonal terms: rhs = rhs - W @ v_bc
+            v_bc = np.zeros(mesh.n_vertices)
+            v_bc[dirichlet_indices] = dirichlet_values
+            rhs = M @ (rhs - W @ v_bc) + v_bc
+            # Zero out rows and columns, set diagonal to 1
+            W = M @ W @ M + diags(1.0 - mask)
             W = W.tocsr()
-            rhs = np.asarray(rhs).reshape(-1)
-            rhs[pin_index] = pin_value
+        elif pin_index is not None:
+            mask = np.ones(mesh.n_vertices, dtype=float)
+            mask[pin_index] = 0.0
+            M = diags(mask)
+            v_bc = np.zeros(mesh.n_vertices)
+            v_bc[pin_index] = pin_value
+            rhs = M @ (rhs - W @ v_bc) + v_bc
+            W = M @ W @ M + diags(1.0 - mask)
+            W = W.tocsr()
         u = spsolve(W, rhs)
         return np.asarray(u).reshape(-1)
     else:
-        D0 = np.asarray(D0)
-        H1 = np.asarray(H1)
-        H0 = np.asarray(H0)
-        W = D0.T.dot(H1.dot(D0))
-        rhs = H0.dot(f)
-        n = mesh.n_vertices
-        if pin_index is not None:
+        D0 = D0.toarray() if hasattr(D0, "toarray") else np.asarray(D0)
+        H1 = H1.toarray() if hasattr(H1, "toarray") else np.asarray(H1)
+        H0 = H0.toarray() if hasattr(H0, "toarray") else np.asarray(H0)
+        W = D0.T @ H1 @ D0
+        rhs = H0 @ f
+        
+        if neumann_indices is not None and neumann_values is not None:
+            rhs[neumann_indices] += neumann_values
+            
+        if dirichlet_indices is not None and dirichlet_values is not None:
             W = W.copy()
+            for idx, val in zip(dirichlet_indices, dirichlet_values):
+                rhs -= W[:, idx] * val
+                W[idx, :] = 0
+                W[:, idx] = 0
+                W[idx, idx] = 1.0
+                rhs[idx] = val
+        elif pin_index is not None:
+            W = W.copy()
+            rhs -= W[:, pin_index] * pin_value
             W[pin_index, :] = 0
             W[:, pin_index] = 0
             W[pin_index, pin_index] = 1.0
-            rhs = np.asarray(rhs).reshape(-1)
             rhs[pin_index] = pin_value
         u = np.linalg.solve(W, rhs)
         return u.reshape(-1)

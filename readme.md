@@ -31,7 +31,7 @@ python examples/pde_demo.py           # PDE solvers
 Run tests:
 
 ```bash
-pytest test_ddg.py test_advanced.py -v
+pytest tests/ -v
 ```
 
 ---
@@ -170,4 +170,3 @@ pytest test_ddg.py test_advanced.py -v
 - Polyscope integration (install with `pip install polyscope`)
 
 For full API docs: `README_EXTENDED.md` | For roadmap: `COVERAGE_AND_ROADMAP.md`
-

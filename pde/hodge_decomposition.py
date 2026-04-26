@@ -18,59 +18,82 @@ from pde.poisson import solve_poisson
 
 try:
     from scipy.sparse import isspmatrix, csr_matrix
+    from scipy.sparse.linalg import spsolve
     _HAS_SCIPY = True
 except Exception:
     isspmatrix = lambda x: False
+    spsolve = None
     _HAS_SCIPY = False
 
+
+from operators.hodge_star import hodge_star_0, hodge_star_1, hodge_star_2
+from operators.exterior_derivative import d0, d1
 
 def hodge_decomposition(mesh, v_edges: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Decompose a 1-form (edge vector field) into curl-free + div-free + harmonic parts.
 
     Input: v_edges (n_edges,) — values on edges
     Returns: (grad_f, div_free_part, harmonic_part)
-             grad_f: curl-free part (vertex scalars → gradient gives contribution)
-             div_free_part: divergence-free part
+             grad_f: curl-free (exact) part
+             div_free_part: divergence-free (co-exact) part
              harmonic_part: harmonic residue
     """
-    # Step 1: compute divergence-free part via solving ∇² g = curl(v)
-    curl_v = curl_vector(mesh, v_edges)  # shape (n_faces,)
-    # convert face values to vertex via averaging
+    if not _HAS_SCIPY:
+        raise ImportError("Hodge decomposition requires a working SciPy installation. "
+                          "Your SciPy installation appears to be corrupted or missing.")
+
+    n_e = mesh.n_edges
     n_v = mesh.n_vertices
-    curl_at_vertex = np.zeros(n_v, dtype=float)
-    face_to_vertex_count = np.zeros(n_v, dtype=int)
-    for f_idx, f in enumerate(mesh.faces):
-        for vi in f:
-            curl_at_vertex[int(vi)] += curl_v[f_idx]
-            face_to_vertex_count[int(vi)] += 1
-    curl_at_vertex /= np.maximum(face_to_vertex_count, 1)
+    n_f = mesh.n_faces
 
-    g = solve_poisson(mesh, curl_at_vertex, pin_index=0, pin_value=0.0)
-    grad_g = gradient(mesh, g)
+    # Operators
+    D0 = d0(mesh)
+    D1 = d1(mesh)
+    H0 = hodge_star_0(mesh)
+    H1 = hodge_star_1(mesh)
+    H2 = hodge_star_2(mesh)
 
-    # Step 2: compute curl-free part via solving ∇² f = div(v)
-    # First need to convert edge values to vertex for divergence
-    div_v = divergence(mesh, v_edges)  # shape (n_vertices,)
-    f = solve_poisson(mesh, div_v, pin_index=0, pin_value=0.0)
-    grad_f = gradient(mesh, f)
+    # Step 1: Exact part (curl-free)
+    # Solve ∇² f = div(v) => (H0^-1 D0^T H1 D0) f = H0^-1 D0^T H1 v
+    # Simplified to: (D0^T H1 D0) f = D0^T H1 v
+    L0 = D0.T @ H1 @ D0
+    rhs0 = D0.T @ H1 @ v_edges
+    
+    # Solve with pinning vertex 0 to handle nullspace of constant functions
+    # Using the optimized BC logic we implemented earlier
+    from scipy.sparse import diags
+    mask = np.ones(n_v)
+    mask[0] = 0.0
+    M = diags(mask)
+    L0_fixed = M @ L0 @ M + diags(1.0 - mask)
+    rhs0_fixed = M @ rhs0
+    f = spsolve(L0_fixed, rhs0_fixed)
+    grad_f = D0 @ f
 
-    # Step 3: compute harmonic part as residual
-    # In practice, harmonic part lives in null space of Laplacian
-    # For small/closed surfaces, harmonic space is typically 1-dim or small
-    from operators.laplacian import laplacian_0
-    L = laplacian_0(mesh)
-    if _HAS_SCIPY and isspmatrix(L):
-        L = csr_matrix(L)
-        Lf = L.dot(f)
-        Lg = L.dot(g)
-    else:
-        L = np.asarray(L)
-        Lf = L.dot(f)
-        Lg = L.dot(g)
+    # Step 2: Co-exact part (div-free)
+    # Solve d * d β = d v => (D1 H1^-1 D1^T H2) β = D1 v
+    # Let H1_inv be the inverse of diagonal H1
+    H1_diag = H1.diagonal()
+    H1_inv = diags(1.0 / np.maximum(H1_diag, 1e-12))
+    
+    L_face = D1 @ H1_inv @ D1.T @ H2
+    rhs_face = D1 @ v_edges
+    
+    # Face Laplacian might have a nullspace if mesh is closed
+    # Pin one face to handle it
+    mask_f = np.ones(n_f)
+    mask_f[0] = 0.0
+    Mf = diags(mask_f)
+    L_face_fixed = Mf @ L_face @ Mf + diags(1.0 - mask_f)
+    rhs_face_fixed = Mf @ rhs_face
+    
+    beta = spsolve(L_face_fixed, rhs_face_fixed)
+    div_free_part = H1_inv @ D1.T @ H2 @ beta
 
-    harmonic_part = v_edges - grad_f - grad_g
+    # Step 3: Harmonic part
+    harmonic_part = v_edges - grad_f - div_free_part
 
-    return grad_f, grad_g, harmonic_part
+    return grad_f, div_free_part, harmonic_part
 
 
 def hodge_star_decomposition(mesh, v_edges: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

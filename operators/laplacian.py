@@ -24,6 +24,14 @@ def laplacian_0(mesh) -> Any:
     """Assemble DEC Laplacian for 0-forms. Returns sparse (if scipy)
     or dense numpy array otherwise.
     """
+    # Check cache
+    cache = getattr(mesh, "_cache", None)
+    if isinstance(cache, dict) and "laplacian_0" in cache:
+        return cache["laplacian_0"]
+    if hasattr(mesh, "_cache") and hasattr(mesh._cache, "operators"):
+        if "laplacian_0" in mesh._cache.operators:
+            return mesh._cache.operators["laplacian_0"]
+
     D0 = d0(mesh)
     H1 = hodge_star_1(mesh)
     H0 = hodge_star_0(mesh)
@@ -37,26 +45,31 @@ def laplacian_0(mesh) -> Any:
         if not isspmatrix(H0):
             H0 = csr_matrix(H0)
 
-        W = D0.T.dot(H1.dot(D0))
+        W = D0.T @ H1 @ D0
         # invert diagonal H0
         diag = H0.diagonal()
-        #inv_diag = 1.0 / #(diag + 1e-16)
         eps = np.finfo(float).eps
         inv_diag = 1.0 / np.maximum(diag, eps)
         H0_inv = _diags(inv_diag)
-        L = H0_inv.dot(W)
-        return L.tocsr()
+        L = (H0_inv @ W).tocsr()
     else:
-        D0 = np.asarray(D0)
-        H1 = np.asarray(H1)
-        H0 = np.asarray(H0)
+        D0 = D0.toarray() if hasattr(D0, "toarray") else np.asarray(D0)
+        H1 = H1.toarray() if hasattr(H1, "toarray") else np.asarray(H1)
+        H0 = H0.toarray() if hasattr(H0, "toarray") else np.asarray(H0)
 
-        W = D0.T.dot(H1.dot(D0))
+        W = D0.T @ H1 @ D0
         diag = np.diag(H0)
-        #inv_diag = 1.0 / #(diag + 1e-16)
         eps = np.finfo(float).eps
         inv_diag = 1.0 / np.maximum(diag, eps)
-        return np.diag(inv_diag).dot(W)
+        L = np.diag(inv_diag) @ W
+
+    # Store in cache
+    if isinstance(cache, dict):
+        cache["laplacian_0"] = L
+    elif hasattr(mesh, "_cache") and hasattr(mesh._cache, "operators"):
+        mesh._cache.operators["laplacian_0"] = L
+        
+    return L
 
 
 __all__ = ["laplacian_0"]

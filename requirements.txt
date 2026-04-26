@@ -1,5 +1,18 @@
-numpy
-scipy
-matplotlib
-pytest
-polyscope  # Interactive 3D visualization (optional but recommended)
+# Core Mathematical & Compute Dependencies
+numpy>=1.21.0
+scipy>=1.9.0
+torch>=2.0.0
+
+# Visualization (Optional, install with `pip install .[viz]`)
+matplotlib>=3.5.0
+polyscope>=2.0.0
+
+# Development & Testing (Optional, install with `pip install .[dev]`)
+pytest>=7.0.0
+pytest-cov
+psutil>=5.9.0
+
+# Note for GPU users:
+# To install PyTorch with specific CUDA/MPS support, visit https://pytorch.org/get-started/locally/
+# Example for CUDA 12.1:
+# pip install torch --index-url https://download.pytorch.org/whl/cu121

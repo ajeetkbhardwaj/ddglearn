@@ -8,11 +8,14 @@ The heat method computes shortest paths on surfaces by:
 This is much faster than exact geodesics and numerically stable.
 """
 import numpy as np
-from typing import Optional
+from typing import Optional, Union, List
+import heapq
 
-from operators.laplacian import laplacian_0
 from operators.gradient import gradient
-from pde.heat import implicit_heat_step
+from operators.divergence import divergence
+from pde.poisson import solve_poisson
+from operators.exterior_derivative import d0
+from operators.hodge_star import hodge_star_0, hodge_star_1
 
 try:
     from scipy.sparse import isspmatrix, csr_matrix
@@ -23,19 +26,27 @@ except Exception:
     _HAS_SCIPY = False
 
 
-def solve_heat_diffusion(mesh, source_index: int, time_scale: float = 1e-3) -> np.ndarray:
+def solve_heat_diffusion(
+    mesh,
+    source_indices: Union[int, List[int], np.ndarray],
+    time_scale: float = 1e-3,
+    dirichlet_indices: Optional[np.ndarray] = None,
+    dirichlet_values: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """Solve heat equation (I - t∇²)u = δ for heat values.
     
-    source_index: vertex where delta source is placed
+    source_indices: vertex index or list of indices where delta source is placed
     time_scale: diffusion time (affects geodesic quality)
+    dirichlet_indices: optional vertex indices to pin
+    dirichlet_values: optional values to pin at dirichlet_indices
     """
-    from operators.hodge_star import hodge_star_0
-    from operators.exterior_derivative import d0
-    from operators.hodge_star import hodge_star_1
+    if isinstance(source_indices, int):
+        source_indices = [source_indices]
 
     n = mesh.n_vertices
     rhs = np.zeros(n, dtype=float)
-    rhs[source_index] = 1.0
+    for src in source_indices:
+        rhs[src] = 1.0
 
     D0 = d0(mesh)
     H1 = hodge_star_1(mesh)
@@ -45,94 +56,147 @@ def solve_heat_diffusion(mesh, source_index: int, time_scale: float = 1e-3) -> n
         D0 = csr_matrix(D0)
         H1 = csr_matrix(H1) if not isspmatrix(H1) else H1
         H0 = csr_matrix(H0) if not isspmatrix(H0) else H0
-        W = D0.T.dot(H1.dot(D0))
+        W = D0.T @ H1 @ D0
         A = (H0 - time_scale * W).tocsr()
+        
+        from scipy.sparse import diags
+        
+        if dirichlet_indices is not None and dirichlet_values is not None:
+            mask = np.ones(n, dtype=float)
+            mask[dirichlet_indices] = 0.0
+            M = diags(mask)
+            v_bc = np.zeros(n)
+            v_bc[dirichlet_indices] = dirichlet_values
+            rhs = M @ (rhs - A @ v_bc) + v_bc
+            A = M @ A @ M + diags(1.0 - mask)
+            A = A.tocsr()
+            
         u = spsolve(A, rhs)
         return np.asarray(u).reshape(-1)
     else:
-        D0 = np.asarray(D0)
-        H1 = np.asarray(H1)
-        H0 = np.asarray(H0)
-        W = D0.T.dot(H1.dot(D0))
+        D0 = D0.toarray() if hasattr(D0, "toarray") else np.asarray(D0)
+        H1 = H1.toarray() if hasattr(H1, "toarray") else np.asarray(H1)
+        H0 = H0.toarray() if hasattr(H0, "toarray") else np.asarray(H0)
+        W = D0.T @ H1 @ D0
         A = H0 - time_scale * W
+        
+        if dirichlet_indices is not None and dirichlet_values is not None:
+            A = A.copy()
+            for idx, val in zip(dirichlet_indices, dirichlet_values):
+                rhs -= A[:, idx] * val
+                A[idx, :] = 0
+                A[:, idx] = 0
+                A[idx, idx] = 1.0
+                rhs[idx] = val
+                
         u = np.linalg.solve(A, rhs)
         return u.reshape(-1)
 
 
-def geodesic_distance(mesh, source_index: int, time_scale: float = 1e-3) -> np.ndarray:
-    """Compute geodesic distance from a source vertex to all other vertices.
+def geodesic_distance(mesh, source_indices: Union[int, List[int], np.ndarray], time_scale: float = 1e-3, method: str = "poisson") -> np.ndarray:
+    """Compute geodesic distance from a source vertex (or set of vertices) to all other vertices.
 
     Uses the heat method: solve short-time heat diffusion, then
-    integrate gradient flow.
+    integrate gradient flow. Optionally supports varadhan's formula or graph fast marching.
 
-    Returns: distances of shape (n_vertices,) where distance[source_index] ≈ 0.
+    Args:
+        mesh: The halfedge mesh.
+        source_indices: A single vertex index or list of indices.
+        time_scale: Time scale parameter for heat diffusion.
+        method: "poisson" (standard heat method), "varadhan", or "fmm_graph".
+
+    Returns: distances of shape (n_vertices,)
     """
-    # step 1: heat diffusion
-    u = solve_heat_diffusion(mesh, source_index, time_scale=time_scale)
+    if isinstance(source_indices, int):
+        sources = [source_indices]
+    else:
+        sources = list(source_indices)
 
-    # step 2: compute gradient
-    try:
-        grad_u = gradient(mesh, u)
-    except Exception:
-        # Fallback if gradient not yet compiled
-        from operators.exterior_derivative import d0
-        D0 = d0(mesh)
-        if _HAS_SCIPY and isspmatrix(D0):
-            grad_u = np.asarray(D0.T.dot(u)).reshape(-1)
-        else:
-            grad_u = np.asarray(D0).T.dot(u)
+    if method == "fmm_graph":
+        from scipy.sparse.csgraph import dijkstra
+        from operators.exterior_derivative import edge_list_and_map
+        from scipy.sparse import csr_matrix
+        
+        edges, _ = edge_list_and_map(mesh)
+        V = mesh.vertices
+        i_idx = [e[0] for e in edges]
+        j_idx = [e[1] for e in edges]
+        dist = np.linalg.norm(V[i_idx] - V[j_idx], axis=1)
+        
+        row = np.concatenate([i_idx, j_idx])
+        col = np.concatenate([j_idx, i_idx])
+        data = np.concatenate([dist, dist])
+        
+        adj = csr_matrix((data, (row, col)), shape=(mesh.n_vertices, mesh.n_vertices))
+        distances = dijkstra(adj, directed=False, indices=sources, min_only=True)
+        return distances
+
+    # step 1: heat diffusion
+    u = solve_heat_diffusion(mesh, sources, time_scale=time_scale)
+
+    if method == "varadhan":
+        u_clipped = np.maximum(u, 1e-100)
+        distances = np.sqrt(np.maximum(-4.0 * time_scale * np.log(u_clipped), 0.0))
+        distances -= np.min(distances[sources])
+        for s in sources:
+            distances[s] = 0.0
+        return distances
+        
+    # step 2: compute 3D vector gradient on faces
+    from operators.gradient import gradient_vector
+    from operators.divergence import divergence_face_vector
+    
+    grad_u = gradient_vector(mesh, u)
 
     # step 3: normalize and integrate
-    # build edge lengths and adjacency
-    V = mesh.vertices
-    edges = []
-    edge_lengths = np.zeros(0)
+    norms = np.linalg.norm(grad_u, axis=1, keepdims=True)
+    norms = np.maximum(norms, 1e-12)
+    X = -grad_u / norms
 
-    # simple vertex-based distance via heat gradient
-    # more precise version would integrate along edges
-    distances = np.zeros(mesh.n_vertices, dtype=float)
-    distances[source_index] = 0.0
+    # Compute divergence of normalized vector field
+    div_X = divergence_face_vector(mesh, X)
 
-    # propagate distances via Dijkstra-like approach on heat field
-    visited = set()
-    queue = [(0.0, source_index)]
+    # Solve Poisson equation: Δ dist = div_X
+    distances = solve_poisson(mesh, div_X).reshape(-1)
 
-    while queue:
-        queue.sort(reverse=True)
-        d, v = queue.pop()
-        if v in visited:
-            continue
-        visited.add(v)
-        distances[v] = d
+    # Shift distance to be 0 at the source vertex
+    src_mean = np.mean(distances[sources])
+    distances -= src_mean
 
-        neighbors = mesh.vertex_neighbors(v)
-        pv = V[v]
-        for w in neighbors:
-            if w not in visited:
-                pw = V[w]
-                edge_len = np.linalg.norm(pw - pv)
-                u_gradient_scale = max(abs(u[w] - u[v]) / (edge_len + 1e-12), 1e-12)
-                approx_dist = d + edge_len / max(u_gradient_scale, 1e-12)
-                queue.append((approx_dist, w))
+    # Depending on Laplacian sign convention, distances may be negative.
+    if np.mean(distances) < 0:
+        distances = -distances
+        src_mean = np.mean(distances[sources])
+        distances -= src_mean
+
+    # Enforce exact 0 at source vertices to clean up numerical Poisson drift
+    for s in sources:
+        distances[s] = 0.0
 
     return distances
 
 
-def heat_method_geodesics(mesh, source_indices: list = None, time_scale: float = 1e-3) -> np.ndarray:
+def heat_method_geodesics(mesh, source_indices: list = None, time_scale: float = 1e-3, batch: bool = False, method: str = "poisson") -> np.ndarray:
     """Batch compute geodesic distances from multiple sources.
 
     source_indices: list of vertex indices to use as sources (default: single vertex 0)
-    Returns: array of shape (n_sources, n_vertices) with distances
+    batch: If True, computes a single distance field to the nearest source.
+           If False, returns array of shape (n_sources, n_vertices) with individual distances.
+    method: "poisson" (Heat Method), "varadhan", or "fmm_graph"
+    Returns: array of shape (n_sources, n_vertices) or (n_vertices,)
     """
     if source_indices is None:
         source_indices = [0]
+
+    if batch:
+        return geodesic_distance(mesh, source_indices, time_scale=time_scale, method=method)
 
     n_sources = len(source_indices)
     n_v = mesh.n_vertices
     distances = np.zeros((n_sources, n_v), dtype=float)
 
     for i, src in enumerate(source_indices):
-        distances[i, :] = geodesic_distance(mesh, src, time_scale=time_scale)
+        distances[i, :] = geodesic_distance(mesh, src, time_scale=time_scale, method=method)
 
     return distances
 

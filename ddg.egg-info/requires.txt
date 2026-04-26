@@ -1,0 +1,15 @@
+numpy>=1.21.0
+scipy>=1.9.0
+torch>=2.0.0
+
+[all]
+ddg[dev,viz]
+
+[dev]
+pytest>=7.0.0
+pytest-cov
+psutil>=5.9.0
+
+[viz]
+polyscope>=2.0.0
+matplotlib>=3.5.0

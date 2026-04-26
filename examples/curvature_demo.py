@@ -1,65 +1,51 @@
-"""Demo: compute and visualize Gaussian and mean curvature on a small mesh.
+"""Curvature & Shape Operator Demonstration."""
 
-This script uses matplotlib to plot vertex-based Gaussian curvature as
-colors and the mean curvature vector as quivers (projected to XY).
-"""
 import sys
-import pathlib
 import numpy as np
+from pathlib import Path
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# Ensure the parent directory is in the path so 'import ddg' resolves correctly
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from core.halfedge import HalfEdgeMesh
-from geometry.curvature import gaussian_curvature, mean_curvature_vector
+from ddg import (
+    HalfEdgeMesh, load_mesh, gaussian_curvature, mean_curvature, 
+    principal_curvatures, batch_visualization
+)
 
-import matplotlib.pyplot as plt
-
-
-def visualize_curvature(mesh, title="Curvature"):
-    K = gaussian_curvature(mesh)
-    Hn = mean_curvature_vector(mesh)
-
-    V = mesh.vertices
-    xy = V[:, :2]
-
-    fig, ax = plt.subplots(figsize=(5, 5))
-    sc = ax.scatter(xy[:, 0], xy[:, 1], c=K, cmap="viridis", s=80, edgecolor='k')
-    plt.colorbar(sc, ax=ax, label="Gaussian curvature")
-
-    # show mean curvature vector projected to XY plane
-    scale = 0.1 * max(1.0, np.max(np.linalg.norm(Hn, axis=1)))
-    ax.quiver(xy[:, 0], xy[:, 1], Hn[:, 0], Hn[:, 1], angles='xy', scale_units='xy', scale=1.0/scale, color='r')
-
-    ax.set_title(title)
-    ax.set_aspect('equal')
-    plt.show()
-
+def get_demo_mesh():
+    data_path = Path(__file__).resolve().parents[1] / "data" / "bunny.obj"
+    if data_path.exists():
+        print(f"Loading {data_path}...")
+        V, F = load_mesh(str(data_path))
+        return HalfEdgeMesh(V, F)
+    else:
+        print("Notice: data/bunny.obj not found. Falling back to synthetic octahedron.")
+        V = np.array([[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]], dtype=float)
+        F = np.array([[0,4,2], [2,4,1], [1,4,3], [3,4,0], [0,2,5], [2,1,5], [1,3,5], [3,0,5]], dtype=int)
+        return HalfEdgeMesh(V, F)
 
 def main():
-    # simple pyramid mesh (square base + apex) to show nontrivial curvature
-    V = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.5, 0.5, 0.5],
-    ])
-    F = np.array([
-        [0, 1, 4],
-        [1, 2, 4],
-        [2, 3, 4],
-        [3, 0, 4],
-        [0, 1, 2],
-        [0, 2, 3],
-    ])
-    from core.mesh_io import load_obj
-    path = '../data/bunny.obj'
-    V, F = load_obj(path)
-    mesh = HalfEdgeMesh(V, F)
-    visualize_curvature(mesh, title="Gaussian & Mean Curvature (pyramid)")
+    mesh = get_demo_mesh()
+    print(f"Mesh loaded: {mesh.n_vertices} vertices, {mesh.n_faces} faces.")
 
+    print("Computing Gaussian Curvature...")
+    K = gaussian_curvature(mesh)
+    
+    print("Computing Mean Curvature...")
+    H = mean_curvature(mesh)
+    
+    print("Computing Principal Curvatures...")
+    k1, k2 = principal_curvatures(mesh)
 
-if __name__ == '__main__':
+    try:
+        import polyscope
+        print("Launching Polyscope 3D Viewer...")
+        batch_visualization(mesh, {
+            "Gaussian Curvature (K)": ("scalar", K, {"cmap": "coolwarm"}),
+            "Mean Curvature (H)": ("scalar", H, {"cmap": "viridis"}),
+        })
+    except ImportError:
+        print("\nResults computed successfully! Install 'polyscope' to visualize.")
+
+if __name__ == "__main__":
     main()
