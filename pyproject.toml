@@ -3,20 +3,30 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ddg"
+name = "ddglearn"
 version = "0.1.0"
-description = "Advanced Discrete Differential Geometry Framework (Research-Grade)"
-readme = "readme.md"
+description = "Advanced Discrete Differential Geometry Framework (Research)"
+readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "DDG Contributors"}
+    {name = "Ajeet Kumar"}
+]
+keywords = [
+    "discrete-differential-geometry",
+    "geometry-processing",
+    "triangle-mesh",
+    "discrete-exterior-calculus",
+    "laplacian",
+    "spectral-geometry",
+    "halfedge",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Science/Research",
 ]
 dependencies = [
     "numpy>=1.21.0",
@@ -25,19 +35,28 @@ dependencies = [
 
 [project.optional-dependencies]
 viz = [
-    "polyscope>=2.0.0",
     "matplotlib>=3.5.0",
+    "meshplot>=0.4.0",
+    "polyscope>=2.0.0",
 ]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov",
     "psutil>=5.9.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.25.0",
 ]
-all = ["ddg[viz,dev]"]
+all = ["ddglearn[viz,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/ajeetkbhardwaj/ddglearn"
+Documentation = "https://ajeetkbhardwaj.github.io/ddglearn"
+Repository = "https://github.com/ajeetkbhardwaj/ddglearn"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "geometry*", "operators*", "pde*", "spectral*", "visualization*"]
+include = ["ddglearn*"]
 
 [tool.pytest.ini_options]
 filterwarnings = [

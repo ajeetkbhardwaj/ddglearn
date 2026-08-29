@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from core import HalfEdgeMesh, load_mesh, save_mesh, validate_triangle_mesh
+from ddglearn.core import HalfEdgeMesh, load_mesh, save_mesh, validate_triangle_mesh
 
 
 def test_pyramid_mesh():

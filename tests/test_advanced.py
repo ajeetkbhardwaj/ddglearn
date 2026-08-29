@@ -5,20 +5,20 @@ import pytest
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents))
+sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from core import HalfEdgeMesh
+from ddglearn.core import HalfEdgeMesh
 from tests.test_numerical import load_synthetic
 
 # Import advanced modules
-from geometry.decimation import decimate_mesh
-from pde.cloth import cloth_simulation_step
-from pde.wave import simulate_wave
-from pde.fluids import fluid_velocity_from_vorticity
-from pde.hodge_decomposition import hodge_decomposition, is_divergence_free, is_curl_free
-from spectral.wks import compute_wks
-from spectral.functional_map import compute_functional_map, point_to_point_from_functional_map
-from operators.connection import connection_laplacian, compute_vertex_bases, vertex_holonomy
+from ddglearn.geometry.decimation import decimate_mesh
+from ddglearn.pde.cloth import cloth_simulation_step
+from ddglearn.pde.wave import simulate_wave
+from ddglearn.pde.fluids import fluid_velocity_from_vorticity
+from ddglearn.pde.hodge_decomposition import hodge_decomposition, is_divergence_free, is_curl_free
+from ddglearn.spectral.wks import compute_wks
+from ddglearn.spectral.functional_map import compute_functional_map, point_to_point_from_functional_map
+from ddglearn.operators.connection import connection_laplacian, compute_vertex_bases, vertex_holonomy
 
 class TestAdvancedFeatures:
     @pytest.fixture

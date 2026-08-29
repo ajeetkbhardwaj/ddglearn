@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from core import HalfEdgeMesh, load_mesh
-from operators import (
+from ddglearn.core import HalfEdgeMesh, load_mesh
+from ddglearn.operators import (
     d0,
     d1,
     hodge_star_0,
@@ -20,9 +20,9 @@ from operators import (
     curl_scalar,
     curl_vector,
 )
-from geometry import gaussian_curvature, mean_curvature, principal_curvatures
-from spectral import eigen_decomposition, compute_hks
-from pde import solve_poisson, geodesic_distance, implicit_heat
+from ddglearn.geometry import gaussian_curvature, mean_curvature, principal_curvatures
+from ddglearn.spectral import eigen_decomposition, compute_hks
+from ddglearn.pde import solve_poisson, geodesic_distance, implicit_heat
 
 
 DATA_DIR = Path(__file__).parents[1] / "data"
@@ -88,7 +88,7 @@ class TestNumericalStability:
         assert zero_count == 1, f"Expected 1 zero eigenvalue, got {zero_count}"
 
     def test_gradient_divergence_identity_synthetic(self):
-        """div(grad(u)) should equal Laplacian applied to u."""
+        """div(grad(u)) = -M^{-1} L_c u  (Strong form identity)."""
         mesh = load_synthetic()
         np.random.seed(42)
         u = np.random.randn(mesh.n_vertices)
@@ -96,12 +96,15 @@ class TestNumericalStability:
         grad_u = gradient(mesh, u)
         div_grad = divergence(mesh, grad_u)
 
-        L = laplacian_0(mesh)
+        L = laplacian_0(mesh)          # Weak Laplacian L_c
+        H0 = hodge_star_0(mesh)        # Mass matrix M
         L_dense = L.toarray() if hasattr(L, "toarray") else np.asarray(L)
-        L_u = L_dense @ u
+        M_dense = H0.toarray() if hasattr(H0, "toarray") else np.asarray(H0)
+        M_inv = np.diag(1.0 / np.diag(M_dense))
+        L_strong_u = M_inv @ L_dense @ u
 
-        diff = np.max(np.abs(div_grad + L_u))
-        assert diff < 1e-6, f"div(grad(u)) != -Lu: max diff = {diff}"
+        diff = np.max(np.abs(div_grad + L_strong_u))
+        assert diff < 1e-6, f"div(grad(u)) != -M^-1 L_c u: max diff = {diff}"
 
     def test_exterior_derivative_forms_synthetic(self):
         """d1 @ d0 should be zero (closed forms)."""
@@ -242,7 +245,7 @@ class TestNumericalStability:
         
     def test_chebyshev_filter_synthetic(self):
         """Test Chebyshev polynomial spectral filters."""
-        from spectral.chebyshev import chebyshev_filter
+        from ddglearn.spectral.chebyshev import chebyshev_filter
         mesh = load_synthetic()
         x = np.random.randn(mesh.n_vertices)
         T = chebyshev_filter(mesh, x, order=3)
@@ -253,7 +256,7 @@ class TestNumericalStability:
         
     def test_sinkhorn_wasserstein_synthetic(self):
         """Test Convolutional Wasserstein Distances."""
-        from geometry.optimal_transport import sinkhorn_wasserstein
+        from ddglearn.geometry.optimal_transport import sinkhorn_wasserstein
         mesh = load_synthetic()
         p = np.zeros(mesh.n_vertices)
         q = np.zeros(mesh.n_vertices)
@@ -320,7 +323,7 @@ class TestBoundaryHandling:
 
     def test_harmonic_parameterization_boundary(self):
         """Test mapping a bounded 3D mesh to a 2D unit circle."""
-        from geometry.parameterization import harmonic_parameterization
+        from ddglearn.geometry.parameterization import harmonic_parameterization
         V = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
         F = np.array([[0, 1, 2], [0, 2, 3]])
         mesh = HalfEdgeMesh(V, F)

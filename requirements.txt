@@ -4,7 +4,7 @@ scipy>=1.9.0
 
 # Visualization (Optional, install with `pip install .[viz]`)
 matplotlib>=3.5.0
-polyscope>=2.0.0
+meshplot
 
 # Development & Testing (Optional, install with `pip install .[dev]`)
 pytest>=7.0.0

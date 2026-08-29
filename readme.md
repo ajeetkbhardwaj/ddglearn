@@ -1,172 +1,108 @@
-DDG — Advanced Discrete Differential Geometry Framework (Research-Grade)
-==========================================================================
+# DDGlearn
 
-A **comprehensive, production-ready** Discrete Exterior Calculus (DEC) / FEM implementation 
-for triangle meshes with spectral geometry, curvature analysis, PDE solvers, and advanced
-vector field processing.
+**Discrete Differential Geometry Library for Python**
 
-✅ **ALL PHASES IMPLEMENTED** (100% feature coverage)
+A production-grade implementation of Discrete Exterior Calculus (DEC) on triangle meshes — curvature analysis, PDE solvers, spectral geometry, and shape understanding, all fully vectorized with NumPy.
 
----
+## Features
 
-Quick Start
------------
+| Module        | What it provides                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core`      | Half-edge mesh data structure, OBJ/OFF/PLY I/O, validation, caching & benchmarking utilities                                                         |
+| `operators` | DEC operators: exterior derivatives`d0`/`d1`, Hodge stars `*0/*1/*2`, (co)tangent Laplacians, gradient, divergence, curl, connection Laplacian |
+| `geometry`  | Gaussian/mean/principal curvatures, shape operator tensors, optimal transport, harmonic parameterization, mesh decimation                            |
+| `pde`       | Poisson, implicit heat, unconditionally-stable wave equation, Heat-Method geodesics, Hodge decomposition, surface fluids, cloth simulation           |
+| `spectral`  | Laplacian eigenpairs, Heat/Wave Kernel Signatures (HKS/WKS), Chebyshev filters, functional maps for shape correspondence                             |
+| `parallel`  | Thread/process pools for batched independent computations                                                                                            |
 
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-pip install polyscope  # For interactive 3D visualization (optional)
-```
-
-Run demos:
+## Installation
 
 ```bash
-python examples/advanced_demo.py      # All features in one go
-python examples/spectral_demo.py      # Eigenvalues + HKS
-python examples/curvature_demo.py     # Curvature visualization
-python examples/pde_demo.py           # PDE solvers
+pip install .
 ```
 
-Run tests:
+With optional extras:
 
 ```bash
-pytest tests/ -v
+pip install ".[viz]"   # matplotlib, meshplot, polyscope
+pip install ".[dev]"   # pytest, psutil, mkdocs toolchain
+pip install ".[all]"
 ```
 
----
+Requires Python ≥ 3.9, NumPy, SciPy.
 
-## Features Overview
-
-**Phase 1–2: Core DEC** ✅
-- Half-edge mesh with adjacency queries
-- Exterior derivatives d₀, d₁ (topological matrices)
-- Hodge star operators *₀, *₁, *₂
-- Laplace–Beltrami operator
-
-**Phase 5A: Vector Operators** ✅
-- `gradient(u)` — vertex scalar → edge values
-- `divergence(v)` — edge values → vertex scalar
-- `curl(u)` scalar and `curl(v)` vector forms
-
-**Phase 5B: Spectral + Shape** ✅
-- Wave Kernel Signature (WKS) — advanced shape descriptor
-- Vertex normals, principal directions
-- Shape operator (Weingarten map)
-
-**Phase 5C: Advanced PDE** ✅
-- Geodesic distance (heat method)
-- Hodge decomposition (curl-free + div-free + harmonic)
-
-**Phase 6: Visualization** ✅
-- Polyscope integration (interactive 3D viewer)
-- Batch visualization API
-
-**Phase 7: I/O & Utilities** ✅
-- OBJ, PLY, OFF file support
-- Auto-format detection
-
----
-
-## Complete API
+## Quick Start
 
 ```python
-# Mesh & I/O
-from core.halfedge import HalfEdgeMesh
-from core.mesh_io import load_mesh, save_mesh
+import numpy as np
+from ddglearn import HalfEdgeMesh, load_mesh
 
-# Vector calculus
-from operators.gradient import gradient
-from operators.divergence import divergence
-from operators.curl import curl_scalar, curl_vector
+# Load a mesh (half-edge data structure)
+vertices, faces = load_mesh("data/bunny.obj")
+mesh = HalfEdgeMesh(vertices, faces)
 
 # Curvature
-from geometry.curvature import gaussian_curvature, principal_curvatures
-from geometry.shape_operator import principal_directions
+from ddglearn import gaussian_curvature, mean_curvature
+K = gaussian_curvature(mesh)      # angle-deficit per vertex
+H = mean_curvature(mesh)          # via cotangent Laplacian
 
-# Spectral
-from spectral.eigen import eigen_decomposition
-from spectral.hks import compute_hks
-from spectral.wks import compute_wks
+# Geodesic distance (Heat Method, Crane et al. 2013)
+from ddglearn import geodesic_distance
+d = geodesic_distance(mesh, source_indices=[0])
 
-# PDE
-from pde.poisson import solve_poisson
-from pde.heat import implicit_heat
-from pde.wave import simulate_wave
-from pde.geodesics import geodesic_distance
-from pde.hodge_decomposition import hodge_decomposition
+# Spectral descriptors
+from ddglearn import compute_hks, eigen_decomposition
+evals, evecs = eigen_decomposition(mesh, k=20)
+times, hks = compute_hks(mesh, k=50)
 
-# Visualization
-from visualization.polyscope_viewer import (
-    plot_scalar_field, plot_vector_field,
-    plot_curvature, plot_geodesic_distance, plot_hks
-)
+# PDEs on the surface
+from ddglearn import solve_poisson, implicit_heat_step, wave_step
+u = solve_poisson(mesh, f, pin_index=0)          # Δu = f
+u_next = implicit_heat_step(mesh, u, t=1e-5)     # heat diffusion
 ```
 
----
+## Conventions
 
-## Project Structure
+- **Weak Laplacian:** `L = d0ᵀ *1 d0` — symmetric positive semi-definite. Strong form is `-M⁻¹L`; PDE solves keep the mass matrix on the RHS (`Lu = Mf`).
+- **Hodge star \*1** uses cotangent weights clamped to be non-negative → guarantees PSD Laplacian.
+- **Wave equation** uses Crank–Nicolson (unconditionally stable, 2nd-order).
+- **Geodesics** implement the Heat Method with `poisson`, `varadhan`, and `fmm_graph` variants.
 
-```
-ddg/
-├── core/                      # Mesh & I/O
-│   ├── halfedge.py
-│   └── mesh_io.py             # NEW: OBJ/PLY/OFF support
-├── geometry/                  # Shape analysis
-│   ├── curvature.py
-│   └── shape_operator.py      # NEW: Principal directions
-├── operators/                 # DEC + vector ops
-│   ├── exterior_derivative.py
-│   ├── hodge_star.py
-│   ├── laplacian.py
-│   ├── gradient.py            # NEW
-│   ├── divergence.py          # NEW
-│   └── curl.py                # NEW
-├── pde/                       # Solvers
-│   ├── poisson.py
-│   ├── heat.py
-│   ├── wave.py
-│   ├── geodesics.py           # NEW: Heat method
-│   └── hodge_decomposition.py # NEW: Vector field splitting
-├── spectral/                  # Spectral methods
-│   ├── eigen.py
-│   ├── hks.py
-│   └── wks.py                 # NEW: Wave Kernel Signature
-├── visualization/             # Visualization
-│   └── polyscope_viewer.py    # NEW: Interactive 3D
-├── examples/
-│   ├── spectral_demo.py
-│   ├── curvature_demo.py
-│   ├── pde_demo.py
-│   └── advanced_demo.py       # NEW: All features demo
-├── test_ddg.py                # 20+ core tests
-├── test_advanced.py           # 20+ advanced tests
-└── requirements.txt
-```
+## Documentation
 
----
-
-## Tests (40+ comprehensive)
+Full documentation lives in `docs/`:
 
 ```bash
-pytest test_ddg.py test_advanced.py -v
+pip install mkdocs mkdocs-material mkdocstrings[python]
+mkdocs serve    # http://127.0.0.1:8000
 ```
 
----
+- [Getting Started](docs/guide/getting-started.md)
+- [Guides](docs/guide/core.md) — core, operators, geometry, PDE, spectral, parallel, visualization
+- [Tutorials](docs/tutorials/geodesic-distance.md) — real problems solved with the bundled meshes:
+  geodesic distance · spectral fingerprinting · surface fluids · parameterization · shape correspondence
+- [API Reference](docs/api/core.md) — auto-generated from docstrings via mkdocstrings
 
-## Mathematical References
+## Examples
 
-- Crane et al. *Discrete Differential Geometry: An Applied Introduction* (2018)
-- Botsch et al. *Polygon Mesh Processing* (2010)
-- Meyer et al. Discrete differential-geometry operators for triangulated 2-manifolds (2003)
-- Crane et al. Geodesics in Heat (2013)
+Runnable scripts in [`examples/`](examples/) covering every submodule; PDE/spectral examples write interactive WebGL HTML animations to `examples/_output/`.
 
----
+```bash
+python examples/02_curvature.py
+python examples/09_pde_wave.py
+open examples/_output/09_wave.html
+```
 
-## Notes
+## Testing
 
-- SciPy sparse for large meshes, NumPy dense for small
-- Implicit time-stepping (unconditionally stable)
-- Polyscope integration (install with `pip install polyscope`)
+```bash
+pytest            # from repo root
+```
 
-For full API docs: `README_EXTENDED.md` | For roadmap: `COVERAGE_AND_ROADMAP.md`
+## Sample Meshes
+
+`data/` bundles several meshes (Stanford bunny, Utah teapot, humanoid, …). Note: `bunny.obj` is watertight and ideal for PDE demos; some others contain degenerate triangles or multiple components — see the docs guide for compatibility notes.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

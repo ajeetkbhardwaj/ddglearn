@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from core import HalfEdgeMesh
-from operators import (
+from ddglearn.core import HalfEdgeMesh
+from ddglearn.operators import (
     d0,
     d1,
     hodge_star_0,
@@ -113,10 +113,14 @@ class TestConsistency:
         u = np.random.randn(simple_mesh.n_vertices)
         grad_u = gradient(simple_mesh, u)
         div_grad = divergence(simple_mesh, grad_u)
-        L = laplacian_0(simple_mesh)
+        L = laplacian_0(simple_mesh)          # Weak Laplacian L_c
+        H0 = hodge_star_0(simple_mesh)        # Mass matrix M
         L_dense = L.toarray() if hasattr(L, "toarray") else np.asarray(L)
-        L_u_dense = L_dense.dot(u)
-        assert np.allclose(div_grad, -L_u_dense, rtol=1e-5)
+        M_dense = H0.toarray() if hasattr(H0, "toarray") else np.asarray(H0)
+        M_inv = np.diag(1.0 / np.diag(M_dense))
+        # div(grad(u)) = -M^{-1} L_c u  (Strong form identity)
+        L_strong_u = M_inv @ L_dense.dot(u)
+        assert np.allclose(div_grad, -L_strong_u, rtol=1e-5)
 
 
 if __name__ == "__main__":

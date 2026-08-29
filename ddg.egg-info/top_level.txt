@@ -1,6 +1,0 @@
-core
-geometry
-operators
-pde
-spectral
-visualization
