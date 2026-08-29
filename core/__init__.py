@@ -1,7 +1,6 @@
 """Core mesh data structures and I/O."""
 
 from .halfedge import HalfEdgeMesh, HalfEdge
-from .torch_mesh import TorchHalfEdgeMesh
 from .meshvalid import validate_triangle_mesh
 from .mesh_io import (
     load_mesh, save_mesh, load_obj, save_obj, 
@@ -9,7 +8,7 @@ from .mesh_io import (
 )
 
 __all__ = [
-    "HalfEdgeMesh", "TorchHalfEdgeMesh", "HalfEdge",
+    "HalfEdgeMesh", "HalfEdge",
     "validate_triangle_mesh", "load_mesh", "save_mesh",
     "load_obj", "save_obj", "load_off", "save_off",
     "load_ply", "save_ply", "remove_duplicate_vertices"

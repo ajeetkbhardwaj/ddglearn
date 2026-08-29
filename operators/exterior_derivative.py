@@ -47,7 +47,7 @@ def d0(mesh):
     cache = getattr(mesh, "_cache", None)
     if isinstance(cache, dict) and "d0" in cache:
         return cache["d0"]
-    # Check TorchMesh cache
+    # Check mesh cache
     if hasattr(mesh, "_cache") and hasattr(mesh._cache, "operators"):
         if "d0" in mesh._cache.operators:
             return mesh._cache.operators["d0"]

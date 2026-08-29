@@ -14,25 +14,12 @@ except Exception:
     diags = None
     _HAS_SCIPY = False
 
-try:
-    import torch
-    _HAS_TORCH = True
-except ImportError:
-    _HAS_TORCH = False
-
 
 def _face_areas(mesh):
     V, F = mesh.vertices, mesh.faces
-    use_torch = _HAS_TORCH and hasattr(V, "device") and isinstance(V, torch.Tensor)
-    
-    if use_torch:
-        v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
-        cross = torch.linalg.cross(v1 - v0, v2 - v0)
-        return 0.5 * torch.linalg.norm(cross, dim=1)
-    else:
-        v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
-        cross = np.cross(v1 - v0, v2 - v0)
-        return 0.5 * np.linalg.norm(cross, axis=1)
+    v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    cross = np.cross(v1 - v0, v2 - v0)
+    return 0.5 * np.linalg.norm(cross, axis=1)
 
 
 def hodge_star_0(mesh):
@@ -51,13 +38,8 @@ def hodge_star_0(mesh):
         a = mesh.vertex_area_voronoi_tensor
     else:
         a = mesh.vertex_area_voronoi()
-        
-    use_torch = _HAS_TORCH and hasattr(a, "device") and isinstance(a, torch.Tensor)
-    
-    if use_torch:
-        idx = torch.arange(len(a), device=a.device)
-        res = torch.sparse_coo_tensor(torch.stack([idx, idx]), a, (len(a), len(a))).coalesce()
-    elif _HAS_SCIPY:
+
+    if _HAS_SCIPY:
         res = diags(a)
     else:
         res = np.diag(a)
@@ -85,13 +67,8 @@ def hodge_star_2(mesh):
         a = mesh.face_areas_tensor
     else:
         a = _face_areas(mesh)
-        
-    use_torch = _HAS_TORCH and hasattr(a, "device") and isinstance(a, torch.Tensor)
-    
-    if use_torch:
-        idx = torch.arange(len(a), device=a.device)
-        res = torch.sparse_coo_tensor(torch.stack([idx, idx]), a, (len(a), len(a))).coalesce()
-    elif _HAS_SCIPY:
+
+    if _HAS_SCIPY:
         res = diags(a)
     else:
         res = np.diag(a)
@@ -120,74 +97,37 @@ def hodge_star_1(mesh):
 
     V = mesh.vertices
     F = mesh.faces
-    use_torch = _HAS_TORCH and hasattr(V, "device") and isinstance(V, torch.Tensor)
 
-    if use_torch:
-        v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
-        e0, e1, e2 = v2 - v1, v0 - v2, v1 - v0
-        
-        cross0, cross1, cross2 = torch.linalg.cross(e1, -e2), torch.linalg.cross(e2, -e0), torch.linalg.cross(e0, -e1)
-        norm0 = torch.linalg.norm(cross0, dim=1).clamp(min=1e-12)
-        norm1 = torch.linalg.norm(cross1, dim=1).clamp(min=1e-12)
-        norm2 = torch.linalg.norm(cross2, dim=1).clamp(min=1e-12)
-        
-        cot0 = 0.5 * torch.sum(e1 * (-e2), dim=1) / norm0
-        cot1 = 0.5 * torch.sum(e2 * (-e0), dim=1) / norm1
-        cot2 = 0.5 * torch.sum(e0 * (-e1), dim=1) / norm2
+    v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    e0, e1, e2 = v2 - v1, v0 - v2, v1 - v0
 
-        edges_t = torch.tensor(edges, dtype=torch.long, device=V.device)
-        n_v_t = torch.tensor(len(V), dtype=torch.long, device=V.device)
-        edge_hash = torch.minimum(edges_t[:, 0], edges_t[:, 1]) * n_v_t + torch.maximum(edges_t[:, 0], edges_t[:, 1])
-        sorted_idx = torch.argsort(edge_hash)
-        sorted_hash = edge_hash[sorted_idx]
-        
-        def get_edge_idx(a, b):
-            h = torch.minimum(a, b).long() * n_v_t + torch.maximum(a, b).long()
-            return sorted_idx[torch.searchsorted(sorted_hash, h)]
-            
-        ei = get_edge_idx(F[:, 1], F[:, 2])
-        ej = get_edge_idx(F[:, 0], F[:, 2])
-        ek = get_edge_idx(F[:, 0], F[:, 1])
+    cross0, cross1, cross2 = np.cross(e1, -e2), np.cross(e2, -e0), np.cross(e0, -e1)
+    norm0 = np.maximum(np.linalg.norm(cross0, axis=1), 1e-12)
+    norm1 = np.maximum(np.linalg.norm(cross1, axis=1), 1e-12)
+    norm2 = np.maximum(np.linalg.norm(cross2, axis=1), 1e-12)
 
-        weights = torch.zeros(n_e, dtype=V.dtype, device=V.device)
-        weights.scatter_add_(0, ei, cot0)
-        weights.scatter_add_(0, ej, cot1)
-        weights.scatter_add_(0, ek, cot2)
-        
-        idx = torch.arange(n_e, device=V.device)
-        return torch.sparse_coo_tensor(torch.stack([idx, idx]), weights, (n_e, n_e)).coalesce()
-    else:
-        v0, v1, v2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
-        e0, e1, e2 = v2 - v1, v0 - v2, v1 - v0
-        
-        cross0, cross1, cross2 = np.cross(e1, -e2), np.cross(e2, -e0), np.cross(e0, -e1)
-        norm0 = np.maximum(np.linalg.norm(cross0, axis=1), 1e-12)
-        norm1 = np.maximum(np.linalg.norm(cross1, axis=1), 1e-12)
-        norm2 = np.maximum(np.linalg.norm(cross2, axis=1), 1e-12)
-        
-        cot0 = 0.5 * np.sum(e1 * (-e2), axis=1) / norm0
-        cot1 = 0.5 * np.sum(e2 * (-e0), axis=1) / norm1
-        cot2 = 0.5 * np.sum(e0 * (-e1), axis=1) / norm2
+    cot0 = 0.5 * np.sum(e1 * (-e2), axis=1) / norm0
+    cot1 = 0.5 * np.sum(e2 * (-e0), axis=1) / norm1
+    cot2 = 0.5 * np.sum(e0 * (-e1), axis=1) / norm2
 
-        edges_np = np.array(edges, dtype=np.int64)
-        n_v_np = np.int64(len(V))
-        edge_hash = np.minimum(edges_np[:, 0], edges_np[:, 1]) * n_v_np + np.maximum(edges_np[:, 0], edges_np[:, 1])
-        sorted_idx = np.argsort(edge_hash)
-        sorted_hash = edge_hash[sorted_idx]
-        
-        def get_edge_idx_np(a, b):
-            h = np.minimum(a, b).astype(np.int64) * n_v_np + np.maximum(a, b).astype(np.int64)
-            return sorted_idx[np.searchsorted(sorted_hash, h)]
-            
-        ei = get_edge_idx_np(F[:, 1], F[:, 2])
-        ej = get_edge_idx_np(F[:, 0], F[:, 2])
-        ek = get_edge_idx_np(F[:, 0], F[:, 1])
+    edges_np = np.array(edges, dtype=np.int64)
+    n_v_np = np.int64(len(V))
+    edge_hash = np.minimum(edges_np[:, 0], edges_np[:, 1]) * n_v_np + np.maximum(edges_np[:, 0], edges_np[:, 1])
+    sorted_idx = np.argsort(edge_hash)
+    sorted_hash = edge_hash[sorted_idx]
 
-        weights = np.zeros(n_e)
-        np.add.at(weights, ei, cot0)
-        np.add.at(weights, ej, cot1)
-        np.add.at(weights, ek, cot2)
-        
+    def get_edge_idx_np(a, b):
+        h = np.minimum(a, b).astype(np.int64) * n_v_np + np.maximum(a, b).astype(np.int64)
+        return sorted_idx[np.searchsorted(sorted_hash, h)]
+
+    ei = get_edge_idx_np(F[:, 1], F[:, 2])
+    ej = get_edge_idx_np(F[:, 0], F[:, 2])
+    ek = get_edge_idx_np(F[:, 0], F[:, 1])
+
+    weights = np.zeros(n_e)
+    np.add.at(weights, ei, cot0)
+    np.add.at(weights, ej, cot1)
+    np.add.at(weights, ek, cot2)
 
     if _HAS_SCIPY:
         res = diags(weights)

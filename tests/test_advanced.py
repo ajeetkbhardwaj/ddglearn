@@ -12,7 +12,6 @@ from tests.test_numerical import load_synthetic
 
 # Import advanced modules
 from geometry.decimation import decimate_mesh
-from geometry.optimal_transport import wasserstein_barycenter
 from pde.cloth import cloth_simulation_step
 from pde.wave import simulate_wave
 from pde.fluids import fluid_velocity_from_vorticity
@@ -77,20 +76,6 @@ class TestAdvancedFeatures:
     def test_vertex_holonomy(self, mesh):
         holonomy = vertex_holonomy(mesh)
         assert holonomy.shape == (mesh.n_vertices,)
-
-    def test_meshedgeconv(self, mesh):
-        try:
-            import torch
-            from core.torch_mesh import TorchHalfEdgeMesh
-            from spectral.gnn import MeshEdgeConv
-        except ImportError:
-            pytest.skip("PyTorch not installed")
-            
-        t_mesh = TorchHalfEdgeMesh(mesh.vertices, mesh.faces)
-        conv = MeshEdgeConv(in_channels=3, out_channels=8).to(t_mesh.device)
-        x = torch.randn(t_mesh.n_edges, 3, device=t_mesh.device)
-        out = conv(x, t_mesh)
-        assert out.shape == (t_mesh.n_edges, 8)
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

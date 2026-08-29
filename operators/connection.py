@@ -11,12 +11,6 @@ try:
 except Exception:
     _HAS_SCIPY = False
 
-try:
-    import torch
-    _HAS_TORCH = True
-except ImportError:
-    _HAS_TORCH = False
-
 
 def compute_vertex_bases(mesh) -> np.ndarray:
     """Compute an orthogonal tangent basis (X, Y) for each vertex.
@@ -30,9 +24,7 @@ def compute_vertex_bases(mesh) -> np.ndarray:
     
     from core.performance import vertex_normals
     N = vertex_normals(V, F, normalize=True)
-    if _HAS_TORCH and hasattr(N, "cpu"):
-        N = N.cpu().numpy()
-        
+
     bases = np.zeros((n_v, 2, 3), dtype=float)
     
     for i in range(n_v):
@@ -68,12 +60,9 @@ def connection_laplacian(mesh):
     
     from core.performance import vertex_normals, cotangent_weights
     N = vertex_normals(V, F, normalize=True)
-    if _HAS_TORCH and hasattr(N, "cpu"):
-        N = N.cpu().numpy()
-        
+
     weights_dict = cotangent_weights(V, F)
-    if _HAS_TORCH and hasattr(V, "device"):
-        weights_dict = {k: v.item() for k, v in weights_dict.items()}
+    weights_dict = {k: float(v) for k, v in weights_dict.items()}
         
     I_idx, J_idx, vals = [], [], []
     diag_sums = np.zeros(n_v)
@@ -146,11 +135,7 @@ def vertex_holonomy(mesh):
     from geometry.curvature import gaussian_curvature
     K = gaussian_curvature(mesh)
     A = mesh.vertex_area_voronoi()
-    
-    if _HAS_TORCH:
-        if isinstance(K, torch.Tensor) and not isinstance(A, torch.Tensor):
-            A = torch.tensor(A, device=K.device, dtype=K.dtype)
-            
+
     return K * A
 
 __all__ = ["connection_laplacian", "compute_vertex_bases", "vertex_holonomy"]

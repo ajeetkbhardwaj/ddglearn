@@ -41,7 +41,7 @@ from geometry import (
     principal_directions,
 )
 
-from geometry.optimal_transport import sinkhorn_wasserstein, wasserstein_barycenter
+from geometry.optimal_transport import sinkhorn_wasserstein
 from geometry.decimation import decimate_mesh
 from geometry.parameterization import harmonic_parameterization
 
@@ -127,7 +127,6 @@ __all__ = [
     "shape_operator_tensor",
     "principal_directions",
     "sinkhorn_wasserstein",
-    "wasserstein_barycenter",
     "decimate_mesh",
     "harmonic_parameterization",
     # operators

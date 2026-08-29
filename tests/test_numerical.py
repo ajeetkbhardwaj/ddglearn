@@ -263,35 +263,6 @@ class TestNumericalStability:
         dist, u, v = sinkhorn_wasserstein(mesh, p, q, t=0.05, max_iter=5)
         assert dist > 0.0
         
-    def test_chebconv_layer_synthetic(self):
-        """Test Geometric Deep Learning layers (ChebConv, GAT, Autoencoder)."""
-        try:
-            import torch
-            from core.torch_mesh import TorchHalfEdgeMesh
-            from spectral.gnn import ChebConv, MeshGATConv, ShapeAutoencoder
-        except ImportError:
-            pytest.skip("PyTorch not installed")
-            
-        mesh_cpu = load_synthetic()
-        mesh = TorchHalfEdgeMesh(mesh_cpu.vertices, mesh_cpu.faces)
-        
-        conv = ChebConv(in_channels=3, out_channels=8, order=3).to(mesh.device)
-        x = torch.randn(mesh.n_vertices, 3, device=mesh.device)
-        out = conv(x, mesh)
-        
-        assert out.shape == (mesh.n_vertices, 8)
-        assert not torch.isnan(out).any()
-        
-        gat = MeshGATConv(in_channels=3, out_channels=8).to(mesh.device)
-        out_gat = gat(x, mesh)
-        assert out_gat.shape == (mesh.n_vertices, 8)
-        
-        ae = ShapeAutoencoder(in_channels=3, hidden_channels=16, latent_channels=4).to(mesh.device)
-        z = ae.encode(x, mesh)
-        out_recon = ae.decode(z)
-        assert z.shape == (1, 4)
-        assert out_recon.shape == (1, 3)
-
 class TestBoundaryHandling:
     """Test handling of meshes with boundaries."""
 
