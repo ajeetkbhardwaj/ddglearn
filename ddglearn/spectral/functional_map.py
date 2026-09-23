@@ -12,16 +12,18 @@ def compute_functional_map(
     """Compute the Functional Map matrix C mapping functions from mesh1 to mesh2.
 
     Args:
-        mesh1: Source HalfEdgeMesh.
-        mesh2: Target HalfEdgeMesh.
-        desc1: (n_vertices1, n_desc) array of descriptors (e.g., HKS/WKS) for mesh1.
-        desc2: (n_vertices2, n_desc) array of descriptors for mesh2.
-        k: Number of eigenvectors to use.
+        mesh1 (HalfEdgeMesh): Source mesh.
+        mesh2 (HalfEdgeMesh): Target mesh.
+        desc1 (np.ndarray): (n_vertices1, n_desc) array of descriptors
+            (e.g., HKS/WKS) for mesh1.
+        desc2 (np.ndarray): (n_vertices2, n_desc) array of descriptors for
+            mesh2.
+        k (int): Number of eigenvectors to use.
 
     Returns:
-        C: (k, k) Functional map matrix.
-        evecs1: (n_vertices1, k) eigenfunctions of mesh1.
-        evecs2: (n_vertices2, k) eigenfunctions of mesh2.
+        C (np.ndarray): (k, k) Functional map matrix.
+        evecs1 (np.ndarray): (n_vertices1, k) eigenfunctions of mesh1.
+        evecs2 (np.ndarray): (n_vertices2, k) eigenfunctions of mesh2.
     """
     from .eigen import eigen_decomposition
     from ..operators.hodge_star import hodge_star_0

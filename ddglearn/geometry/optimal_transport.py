@@ -11,17 +11,17 @@ def sinkhorn_wasserstein(mesh, p, q, t: float = 1e-3, max_iter: int = 150, tol: 
     """Compute the Optimal Transport (Wasserstein) distance between distributions.
 
     Args:
-        mesh: The HalfEdgeMesh.
-        p: Source mass distribution array (shape: n_vertices).
-        q: Target mass distribution array (shape: n_vertices).
-        t: Diffusion time (controls entropy regularization / blurring).
-        max_iter: Maximum Sinkhorn iterations.
-        tol: Convergence tolerance.
+        mesh (HalfEdgeMesh): The mesh.
+        p (np.ndarray): Source mass distribution array (shape: n_vertices).
+        q (np.ndarray): Target mass distribution array (shape: n_vertices).
+        t (float): Diffusion time (controls entropy regularization / blurring).
+        max_iter (int): Maximum Sinkhorn iterations.
+        tol (float): Convergence tolerance.
 
     Returns:
-        dist: Approximate Wasserstein distance.
-        u: Left dual scaling variable.
-        v: Right dual scaling variable.
+        dist (float): Approximate Wasserstein distance.
+        u (np.ndarray): Left dual scaling variable.
+        v (np.ndarray): Right dual scaling variable.
     """
     from ..operators.exterior_derivative import d0
     from ..operators.hodge_star import hodge_star_0, hodge_star_1

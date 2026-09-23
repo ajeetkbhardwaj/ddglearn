@@ -9,12 +9,13 @@ def decimate_mesh(mesh, grid_resolution: float = 0.05):
     """Decimate a mesh using spatial grid clustering.
     
     Args:
-        mesh: The HalfEdgeMesh to downsample.
-        grid_resolution: Size of the spatial clustering grid cells. 
-                         Larger values = fewer polygons.
-                         
+        mesh (HalfEdgeMesh): The mesh to downsample.
+        grid_resolution (float): Size of the spatial clustering grid cells.
+                                Larger values = fewer polygons.
+
     Returns:
-        A new HalfEdgeMesh representing the simplified geometry.
+        decimated_mesh (HalfEdgeMesh): A new mesh representing the
+            simplified geometry.
     """
     V = mesh.vertices
     F = mesh.faces

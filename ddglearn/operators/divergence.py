@@ -66,10 +66,11 @@ def divergence_face_vector(mesh, X: np.ndarray) -> np.ndarray:
     """Compute divergence of a constant-per-face vector field X.
 
     Args:
-        mesh: HalfEdgeMesh instance
-        X: (n_faces, 3) array of vectors
+        mesh (HalfEdgeMesh): The mesh instance.
+        X (np.ndarray): (n_faces, 3) array of vectors.
 
-    Returns: (n_vertices,) array of divergence values
+    Returns:
+        np.ndarray: (n_vertices,) array of divergence values.
     """
     V = mesh.vertices
     F = mesh.faces

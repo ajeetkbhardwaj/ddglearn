@@ -35,7 +35,8 @@ def save_mesh_animation(
         filename: output HTML path.
         title: title displayed above the viewer.
         colormap: meshplot/Plotly colormap name.
-        vmin / vmax: color range (auto-detected if None).
+        vmin: color lower range bound (auto-detected if None).
+        vmax: color upper range bound (auto-detected if None).
         fps: playback frames per second for auto-play.
     """
     _ensure_display()

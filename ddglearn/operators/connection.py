@@ -42,10 +42,13 @@ def compute_vertex_bases(mesh) -> np.ndarray:
 
 def connection_laplacian(mesh):
     """Construct the Connection Laplacian matrix for tangent vector fields.
-    
+
+    Args:
+        mesh (HalfEdgeMesh): The mesh instance.
+
     Returns:
-        L_conn: (2|V|, 2|V|) sparse matrix (Connection Laplacian)
-        bases: (n_vertices, 2, 3) local tangent bases
+        L_conn (scipy.sparse matrix): (2|V|, 2|V|) Connection Laplacian.
+        bases (np.ndarray): (n_vertices, 2, 3) local tangent bases.
     """
     V = mesh.vertices
     F = mesh.faces

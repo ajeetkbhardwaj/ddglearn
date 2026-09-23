@@ -100,12 +100,15 @@ def geodesic_distance(mesh, source_indices: Union[int, List[int], np.ndarray], t
     integrate gradient flow. Optionally supports varadhan's formula or graph fast marching.
 
     Args:
-        mesh: The halfedge mesh.
-        source_indices: A single vertex index or list of indices.
-        time_scale: Time scale parameter for heat diffusion.
-        method: "poisson" (standard heat method), "varadhan", or "fmm_graph".
+        mesh (HalfEdgeMesh): The halfedge mesh.
+        source_indices (Union[int, List[int], np.ndarray]): A single vertex
+            index or list of indices.
+        time_scale (float): Time scale parameter for heat diffusion.
+        method (str): "poisson" (standard heat method), "varadhan", or
+            "fmm_graph".
 
-    Returns: distances of shape (n_vertices,)
+    Returns:
+        np.ndarray: distances of shape (n_vertices,).
     """
     if isinstance(source_indices, int):
         sources = [source_indices]

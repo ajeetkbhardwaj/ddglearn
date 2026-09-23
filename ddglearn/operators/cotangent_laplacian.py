@@ -16,13 +16,14 @@ def cotangent_laplacian(mesh):
     """Construct the cotangent Laplace-Beltrami operator matrix L.
 
     Args:
-        mesh: The HalfEdgeMesh instance.
+        mesh (HalfEdgeMesh): The mesh instance.
 
     Returns:
-        L: (n_vertices, n_vertices) SciPy sparse matrix (if installed) or
-           dense numpy array. Off-diagonal entries are non-positive and the
-        diagonal is the positive sum of adjacent cotangent weights, so L is
-        positive semi-definite and consistent with laplacian_0.
+        L (scipy.sparse.csr_matrix or np.ndarray): (n_vertices, n_vertices)
+            SciPy sparse matrix (if installed) or dense numpy array.
+            Off-diagonal entries are non-positive and the diagonal is the
+            positive sum of adjacent cotangent weights, so L is positive
+            semi-definite and consistent with laplacian_0.
     """
     # Check cache
     cache = getattr(mesh, "_cache", None)

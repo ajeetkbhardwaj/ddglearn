@@ -19,14 +19,17 @@ def fluid_velocity_from_vorticity(mesh, omega: np.ndarray, viscosity: float = 0.
     2. Velocity V = \\nabla^\\perp \\psi = \\star d \\psi
     
     Args:
-        mesh: The HalfEdgeMesh instance.
-        omega: (n_vertices,) Voriticy distribution (representing the 2-form dual).
-        viscosity: Kinematic viscosity for diffusion.
-        dt: Timestep.
-        
+        mesh (HalfEdgeMesh): The mesh instance.
+        omega (np.ndarray): (n_vertices,) Voriticy distribution (representing
+            the 2-form dual).
+        viscosity (float): Kinematic viscosity for diffusion.
+        dt (float): Timestep.
+
     Returns:
-        flux: (n_edges,) 1-form representing velocity flux across edges.
-        omega_diffused: (n_vertices,) The diffused vorticity field.
+        flux (np.ndarray): (n_edges,) 1-form representing velocity flux
+            across edges.
+        omega_diffused (np.ndarray): (n_vertices,) The diffused vorticity
+            field.
     """
     # 1. Diffuse vorticity if viscous
     if viscosity > 0:

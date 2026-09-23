@@ -19,14 +19,14 @@ def cloth_simulation_step(
     """Perform one step of cloth simulation.
     
     Args:
-        mesh: HalfEdgeMesh.
-        pos: (V, 3) current positions.
-        vel: (V, 3) current velocities.
-        dt: Time step.
-        stiffness: Spring stiffness for edges.
-        
+        mesh (HalfEdgeMesh): The mesh.
+        pos (np.ndarray): (V, 3) current positions.
+        vel (np.ndarray): (V, 3) current velocities.
+        dt (float): Time step.
+        stiffness (float): Spring stiffness for edges.
+
     Returns:
-        new_pos, new_vel
+        tuple[np.ndarray, np.ndarray]: (new_pos, new_vel).
     """
     n_v = mesh.n_vertices
     forces = np.zeros((n_v, 3))

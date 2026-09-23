@@ -13,10 +13,10 @@ def harmonic_parameterization(mesh) -> np.ndarray:
     This naturally leverages the cotangent Laplacian for minimal angular distortion.
     
     Args:
-        mesh: The HalfEdgeMesh instance.
+        mesh (HalfEdgeMesh): The mesh instance.
         
     Returns:
-        uv_coords: (n_vertices, 2) array of 2D UV coordinates.
+        uv_coords (np.ndarray): (n_vertices, 2) array of 2D UV coordinates.
     """
     from ..pde.poisson import solve_poisson
     
