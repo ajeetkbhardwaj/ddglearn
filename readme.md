@@ -15,7 +15,7 @@ A research and education-grade implementation of Discrete Differential Geometry 
 | `spectral`  | Laplacian eigenpairs, Heat/Wave Kernel Signatures (HKS/WKS), Chebyshev filters, functional maps for shape correspondence                             |
 | `parallel`  | Thread/process pools for batched independent computations                                                                                            |
 
-## Installation
+## Installation Command
 
 ```bash
 pip install .
