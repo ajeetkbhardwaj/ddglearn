@@ -1,6 +1,7 @@
 site_name: DDGlearn
 site_description: Discrete Differential Geometry Learning Library
-repo_url: https://github.com/ajeetkbhardwaj/discrete-differential-geometry
+site_url: https://ajeetkbhardwaj.github.io/ddglearn/
+repo_url: https://github.com/ajeetkbhardwaj/ddglearn
 
 theme:
   name: material
