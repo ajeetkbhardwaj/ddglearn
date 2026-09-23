@@ -2,7 +2,7 @@
 
 **Discrete Differential Geometry Library for Python**
 
-A production-grade implementation of Discrete Exterior Calculus (DEC) on triangle meshes — curvature analysis, PDE solvers, spectral geometry, and shape understanding, all fully vectorized with NumPy.
+A research and education-grade implementation of Discrete Differential Geometry on triangle meshes — curvature analysis, PDE solvers, spectral geometry, and shape understanding, all fully vectorized with NumPy.
 
 ## Features
 
