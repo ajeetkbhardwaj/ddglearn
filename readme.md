@@ -29,7 +29,7 @@ pip install ".[dev]"   # pytest, psutil, mkdocs toolchain
 pip install ".[all]"
 ```
 
-Requires Python ≥ 3.9, NumPy, SciPy.
+Requires Python ≥ 3.10, NumPy, SciPy.
 
 ## Quick Start
 
